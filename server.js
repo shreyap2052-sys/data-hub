@@ -6,6 +6,15 @@ const PORT = 5000;
 // Middleware to parse JSON request bodies
 app.use(express.json());
 
+// Custom request logger middleware
+app.use((req, res, next) => {
+  const timestamp = new Date().toLocaleTimeString();
+
+  console.log(`[${req.method}] ${req.originalUrl} - ${timestamp}`);
+
+  next();
+});
+
 // In-memory database
 let blogPosts = [];
 
@@ -75,6 +84,22 @@ app.delete("/posts/:id", (req, res) => {
   blogPosts = blogPosts.filter((post) => post.id !== id);
 
   res.json({ message: "Post deleted successfully" });
+});
+
+// Mock login endpoint
+app.post("/login", (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({
+      message: "Email and password are required",
+    });
+  }
+
+  res.json({
+    message: "Login successful",
+    token: "mock-jwt-token-12345",
+  });
 });
 
 app.listen(PORT, () => {
