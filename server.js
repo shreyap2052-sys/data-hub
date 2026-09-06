@@ -1,4 +1,9 @@
 const express = require("express");
+const mongoose = require("mongoose");
+require("dotenv").config();
+
+const Post = require("./models/Post");
+const User = require("./models/User");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -15,75 +20,124 @@ app.use((req, res, next) => {
   next();
 });
 
-// In-memory database
-let blogPosts = [];
-
 // Home route
 app.get("/", (req, res) => {
   res.json({ message: "Data Hub API is running" });
 });
 
 // GET all posts
-app.get("/posts", (req, res) => {
-  res.json(blogPosts);
+app.get("/posts", async (req, res) => {
+  try {
+    const posts = await Post.find().populate("authorId");
+
+    res.json(posts);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// GET top 3 most recent posts
+app.get("/posts/recent", async (req, res) => {
+  try {
+    const posts = await Post.find()
+      .sort({ createdAt: -1 })
+      .limit(3)
+      .populate("authorId");
+
+    res.json(posts);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// CREATE a new user
+app.post("/users", async (req, res) => {
+  try {
+    const user = await User.create(req.body);
+    res.status(201).json(user);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
 });
 
 // GET a single post
-app.get("/posts/:id", (req, res) => {
-  const id = Number(req.params.id);
+app.get("/posts/:id", async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id).populate("authorId");
 
-  const post = blogPosts.find((post) => post.id === id);
+    if (!post) {
+      return res.status(404).json({ message: "Post not found" });
+    }
 
-  if (!post) {
-    return res.status(404).json({ message: "Post not found" });
+    res.json(post);
+  } catch (error) {
+    if (error.name === "CastError") {
+      return res.status(400).json({ message: "Invalid post ID" });
+    }
+
+    res.status(500).json({ message: error.message });
   }
-
-  res.json(post);
 });
 
 // CREATE a new post
-app.post("/posts", (req, res) => {
-  const newPost = {
-    id: blogPosts.length + 1,
-    ...req.body,
-  };
+app.post("/posts", async (req, res) => {
+  try {
+    const post = await Post.create(req.body);
 
-  blogPosts.push(newPost);
+    const populatedPost = await post.populate("authorId");
 
-  res.status(201).json(newPost);
+    res.status(201).json(populatedPost);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
 });
 
 // UPDATE a post
-app.put("/posts/:id", (req, res) => {
-  const id = Number(req.params.id);
+app.put("/posts/:id", async (req, res) => {
+  try {
+    const updatedPost = await Post.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      {
+        new: true,
+        runValidators: true,
+      }
+    ).populate("authorId");
 
-  const postIndex = blogPosts.findIndex((post) => post.id === id);
+    if (!updatedPost) {
+      return res.status(404).json({ message: "Post not found" });
+    }
 
-  if (postIndex === -1) {
-    return res.status(404).json({ message: "Post not found" });
+    res.json(updatedPost);
+  } catch (error) {
+    if (error.name === "CastError") {
+      return res.status(400).json({ message: "Invalid post ID" });
+    }
+
+    res.status(400).json({ message: error.message });
   }
-
-  blogPosts[postIndex] = {
-    id,
-    ...req.body,
-  };
-
-  res.json(blogPosts[postIndex]);
 });
 
 // DELETE a post
-app.delete("/posts/:id", (req, res) => {
-  const id = Number(req.params.id);
+app.delete("/posts/:id", async (req, res) => {
+  try {
+    const deletedPost = await Post.findByIdAndDelete(req.params.id);
 
-  const postExists = blogPosts.some((post) => post.id === id);
+    if (!deletedPost) {
+      return res.status(404).json({ message: "Post not found" });
+    }
 
-  if (!postExists) {
-    return res.status(404).json({ message: "Post not found" });
+    res.json({
+      message: "Post deleted successfully",
+      post: deletedPost,
+    });
+  } catch (error) {
+    if (error.name === "CastError") {
+      return res.status(400).json({ message: "Invalid post ID" });
+    }
+
+    res.status(500).json({ message: error.message });
   }
-
-  blogPosts = blogPosts.filter((post) => post.id !== id);
-
-  res.json({ message: "Post deleted successfully" });
 });
 
 // Mock login endpoint
@@ -102,6 +156,16 @@ app.post("/login", (req, res) => {
   });
 });
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Data Hub server running on http://localhost:${PORT}`);
-});
+// Connect to MongoDB and start server
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => {
+    console.log("MongoDB connected");
+
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Data Hub server running on http://localhost:${PORT}`);
+    });
+  })
+  .catch((error) => {
+    console.error("MongoDB connection failed:", error.message);
+  });

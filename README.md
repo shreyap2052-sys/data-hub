@@ -1,46 +1,61 @@
 # The Data Hub
 
-A simple REST API built with Node.js and Express for Sprint 09 (Track B).
+A REST API built with Node.js and Express for Sprint 10 (Track B).
 
-The project is a mock blog API where I implemented basic CRUD operations using an in-memory array instead of a database.
+The project started as an in-memory blog API and was upgraded to use MongoDB Atlas with Mongoose for persistent data storage.
 
 ## What I built
 
-* Express server running on port 5000
-* Blog post CRUD API
-* GET all posts and GET post by ID
-* POST to create a post
-* PUT to update a post
-* DELETE to remove a post
+* Express REST API
+* MongoDB Atlas database connection
+* Mongoose Post and User models
+* Blog post CRUD operations
+* User creation
+* Post-to-user relationship using `authorId`
+* Mongoose `populate()` for author details
+* Route for the 3 most recent posts
+* Custom request logging middleware
 * Basic 404 handling
-* Custom middleware for request logging
-* Simple `/login` endpoint with a mock JWT token
-* Tested the API using Thunder Client
+* Simple `/login` endpoint with a mock token
+* API testing using Thunder Client
 
 ## Tech Used
 
 * Node.js
 * Express
+* MongoDB Atlas
+* Mongoose
 * Thunder Client
 * Git / GitHub
 
 ## API Routes
 
 ```text
+GET     /
 GET     /posts
 GET     /posts/:id
 POST    /posts
 PUT     /posts/:id
 DELETE  /posts/:id
+
+POST    /users
+GET     /posts/recent
+
 POST    /login
 ```
 
 ## Running the project
 
-Install the dependencies:
+Install dependencies:
 
 ```bash
 npm install
+```
+
+Create a `.env` file and add:
+
+```text
+MONGO_URI=your_mongodb_connection_string
 ```
 
 Start the server:
@@ -66,21 +81,20 @@ http://localhost:5000
 ```json
 {
   "title": "My First Post",
-  "author": "Shreya",
   "content": "This is my first Data Hub post."
 }
 ```
 
-## Note
-
-The data is stored only in memory using a JavaScript array, so all posts are cleared when the server is restarted.
-
-The login endpoint is also just a mock authentication setup for this sprint and does not use a real JWT authentication system.
+A post can also be connected to a user using `authorId`.
 
 ## Project Files
 
 ```text
 data-hub/
+
+├── models/
+│   ├── Post.js
+│   └── User.js
 ├── server.js
 ├── package.json
 ├── package-lock.json
@@ -91,4 +105,4 @@ data-hub/
 
 ## Sprint
 
-Sprint 09 — Track B: Fullstack Developers
+Sprint 10 — Track B: Fullstack Developers
