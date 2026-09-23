@@ -1,5 +1,10 @@
+require("dotenv").config();
+const multer = require("multer");
+const cloudinary = require("./config/cloudinary");
+
 const express = require("express");
 const mongoose = require("mongoose");
+const cors = require("cors");
 require("dotenv").config();
 
 const Post = require("./models/Post");
@@ -7,9 +12,18 @@ const User = require("./models/User");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+// Enable CORS for the React frontend
+app.use(cors());
 
 // Middleware to parse JSON request bodies
 app.use(express.json());
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024,
+  },
+});
 
 // Custom request logger middleware
 app.use((req, res, next) => {
@@ -47,6 +61,56 @@ app.get("/posts/recent", async (req, res) => {
     res.json(posts);
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+});
+
+app.post("/posts/upload", upload.single("image"), async (req, res) => {
+  try {
+    const { title, content } = req.body;
+
+    if (!title || !content) {
+      return res.status(400).json({
+        message: "Title and content are required.",
+      });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({
+        message: "Image is required.",
+      });
+    }
+
+    const uploadResult = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        {
+          folder: "data-hub-posts",
+          resource_type: "image",
+        },
+        (error, result) => {
+          if (error) {
+            reject(error);
+          } else {
+            resolve(result);
+          }
+        }
+      );
+
+      stream.end(req.file.buffer);
+    });
+
+    const post = await Post.create({
+      title: title.trim(),
+      content: content.trim(),
+      imageUrl: uploadResult.secure_url,
+    });
+
+    res.status(201).json(post);
+  } catch (error) {
+    console.error("Image upload error:", error);
+
+    res.status(500).json({
+      message: "Failed to upload image and create post.",
+    });
   }
 });
 
