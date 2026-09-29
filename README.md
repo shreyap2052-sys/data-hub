@@ -106,3 +106,47 @@ data-hub/
 ## Sprint
 
 Sprint 10 — Track B: Fullstack Developers
+
+
+## Sprint 12 — Real-Time Systems
+
+Data Hub was extended with Socket.io to provide real-time bidirectional communication for the Cine-Stream frontend.
+
+### Real-Time Features
+
+- Socket.io server integrated with the existing Express server
+- Client connection and disconnection logging
+- User identification
+- Room-based communication
+- General room
+- Tech Support room
+- Real-time message broadcasting
+- Typing indicators
+- Room-specific message isolation
+
+### Socket Events
+
+| Event | Purpose |
+|---|---|
+| `connection` | Handles a new Socket.io client connection |
+| `join-room` | Adds a user to the selected room |
+| `chat-message` | Broadcasts a message to users in the room |
+| `typing` | Sends a typing indicator to other users |
+| `stop-typing` | Removes the typing indicator |
+| `room-joined` | Confirms the user's room connection |
+| `disconnect` | Handles client disconnection |
+
+### Supported Rooms
+
+- `General`
+- `Tech Support`
+
+Messages are broadcast using the selected room, preventing messages from one room from appearing in another.
+
+### Frontend
+
+The Socket.io backend is consumed by the Cine-Stream React frontend.
+
+Frontend repository:
+
+https://github.com/shreyap2052-sys/cine-stream
