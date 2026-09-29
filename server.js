@@ -1,17 +1,30 @@
 require("dotenv").config();
+
 const multer = require("multer");
 const cloudinary = require("./config/cloudinary");
-
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
-require("dotenv").config();
+const http = require("http");
+const { Server } = require("socket.io");
 
 const Post = require("./models/Post");
 const User = require("./models/User");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Create HTTP server for Express + Socket.io
+const server = http.createServer(app);
+
+// Socket.io configuration
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"],
+  },
+});
+
 // Enable CORS for the React frontend
 app.use(cors());
 
@@ -33,6 +46,95 @@ app.use((req, res, next) => {
 
   next();
 });
+
+// ============================================================
+// SOCKET.IO REAL-TIME COMMUNICATION
+// ============================================================
+
+io.on("connection", (socket) => {
+  console.log(`Socket client connected: ${socket.id}`);
+
+  // Client joins a selected room
+  socket.on("join-room", ({ username, room }) => {
+    const allowedRooms = ["General", "Tech Support"];
+
+    if (!allowedRooms.includes(room)) {
+      return;
+    }
+
+    // Leave previously joined rooms
+    socket.rooms.forEach((existingRoom) => {
+      if (existingRoom !== socket.id) {
+        socket.leave(existingRoom);
+      }
+    });
+
+    socket.join(room);
+
+    socket.data.username = username || "Anonymous";
+    socket.data.room = room;
+
+    console.log(
+      `${socket.data.username} (${socket.id}) joined ${room}`
+    );
+
+    socket.emit("room-joined", {
+      username: socket.data.username,
+      room,
+    });
+  });
+
+  // Receive and broadcast chat messages only inside the selected room
+  socket.on("chat-message", ({ message, username, room }) => {
+    if (!message || !room) {
+      return;
+    }
+
+    const payload = {
+      username: username || socket.data.username || "Anonymous",
+      message: message.trim(),
+      room,
+      timestamp: new Date().toISOString(),
+    };
+
+    // Broadcast to everyone currently inside this room,
+    // including the sender.
+    io.to(room).emit("chat-message", payload);
+  });
+
+  // User starts typing
+  socket.on("typing", ({ username, room }) => {
+    if (!room) {
+      return;
+    }
+
+    socket.to(room).emit("typing", {
+      username: username || socket.data.username || "Anonymous",
+      room,
+    });
+  });
+
+  // User stops typing
+  socket.on("stop-typing", ({ username, room }) => {
+    if (!room) {
+      return;
+    }
+
+    socket.to(room).emit("stop-typing", {
+      username: username || socket.data.username || "Anonymous",
+      room,
+    });
+  });
+
+  // Client disconnected
+  socket.on("disconnect", () => {
+    console.log(`Socket client disconnected: ${socket.id}`);
+  });
+});
+
+// ============================================================
+// REST API
+// ============================================================
 
 // Home route
 app.get("/", (req, res) => {
@@ -64,6 +166,7 @@ app.get("/posts/recent", async (req, res) => {
   }
 });
 
+// Upload post with image
 app.post("/posts/upload", upload.single("image"), async (req, res) => {
   try {
     const { title, content } = req.body;
@@ -220,14 +323,18 @@ app.post("/login", (req, res) => {
   });
 });
 
-// Connect to MongoDB and start server
+// ============================================================
+// CONNECT TO MONGODB AND START SERVER
+// ============================================================
+
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
     console.log("MongoDB connected");
 
-    app.listen(PORT, "0.0.0.0", () => {
+    server.listen(PORT, "0.0.0.0", () => {
       console.log(`Data Hub server running on http://localhost:${PORT}`);
+      console.log("Socket.io server is ready for real-time connections");
     });
   })
   .catch((error) => {
